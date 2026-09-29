@@ -1,8 +1,9 @@
 const { Router } = require('express');
-const { body } = require('express-validator');
+const { body, param, query } = require('express-validator');
 const requireAuth = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { createLink, listLinks } = require('../controllers/links');
+const { requireLinkOwner, getStats, listClicks } = require('../controllers/analytics');
 
 const router = Router();
 
@@ -21,5 +22,24 @@ router.post(
 );
 
 router.get('/', listLinks);
+
+// Analytics — owner-only (requireLinkOwner returns 404/403)
+const linkIdRule = param('id').isMongoId().withMessage('Invalid link id');
+
+router.get('/:id/stats', linkIdRule, validate, requireLinkOwner, getStats);
+
+router.get(
+  '/:id/clicks',
+  linkIdRule,
+  query('page').optional().isInt({ min: 1 }).withMessage('page must be an integer >= 1').toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('limit must be an integer between 1 and 100')
+    .toInt(),
+  validate,
+  requireLinkOwner,
+  listClicks
+);
 
 module.exports = router;

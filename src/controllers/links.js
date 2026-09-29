@@ -1,4 +1,5 @@
 const Link = require('../models/Link');
+const Click = require('../models/Click');
 const { baseUrl } = require('../config/env');
 const { generateShortCode, SHORT_CODE_PATTERN } = require('../utils/shortCode');
 
@@ -39,7 +40,28 @@ async function redirect(req, res) {
     : null;
 
   if (!link) return res.status(404).json({ error: 'Short link not found' });
+
+  // Fire-and-forget: start the writes, but don't await them — a slow or failing
+  // analytics write must never delay or break the redirect.
+  recordClick(link._id, req).catch((err) => console.error('Click tracking failed:', err.message));
+
   res.redirect(302, link.originalUrl);
+}
+
+// Header values are client-controlled; cap their size before storing.
+const MAX_HEADER_LENGTH = 1024;
+const clip = (value) => (value ? value.slice(0, MAX_HEADER_LENGTH) : null);
+
+async function recordClick(linkId, req) {
+  await Promise.all([
+    Click.create({
+      link: linkId,
+      referrer: clip(req.get('referer')),
+      userAgent: clip(req.get('user-agent')),
+      ipAddress: req.ip || null,
+    }),
+    Link.updateOne({ _id: linkId }, { $inc: { clickCount: 1 } }),
+  ]);
 }
 
 module.exports = { createLink, listLinks, redirect };

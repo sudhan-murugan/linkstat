@@ -5,7 +5,7 @@ const linkSchema = new mongoose.Schema(
     originalUrl: { type: String, required: true, trim: true },
     shortCode: { type: String, required: true, unique: true }, // unique index
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    clickCount: { type: Number, default: 0 }, // populated by click analytics (next step)
+    clickCount: { type: Number, default: 0 }, // incremented on every redirect
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
