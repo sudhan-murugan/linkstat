@@ -18,4 +18,9 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN,
   // Public origin used to build short URLs, without trailing slash
   baseUrl: process.env.BASE_URL.replace(/\/+$/, ''),
+  // Optional: without it (or if Redis is unreachable) an in-memory cache is used
+  redisUrl: process.env.REDIS_URL || null,
+  // Number of reverse proxies in front of the app (0 = none), so req.ip and the
+  // per-IP rate limits see the real client IP rather than the proxy's.
+  trustProxy: Number(process.env.TRUST_PROXY) || 0,
 };

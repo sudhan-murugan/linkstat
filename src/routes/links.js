@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { body, param, query } = require('express-validator');
 const requireAuth = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { createLinkLimiter } = require('../middleware/rateLimit');
 const { createLink, listLinks } = require('../controllers/links');
 const { requireLinkOwner, getStats, listClicks } = require('../controllers/analytics');
 
@@ -11,6 +12,7 @@ router.use(requireAuth); // every /api/links route is protected
 
 router.post(
   '/',
+  createLinkLimiter,
   body('url')
     .trim()
     .isLength({ max: 2048 })

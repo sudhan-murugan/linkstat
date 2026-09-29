@@ -3,15 +3,18 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const linkRoutes = require('./routes/links');
 const { redirect } = require('./controllers/links');
+const { authLimiter } = require('./middleware/rateLimit');
+const { trustProxy } = require('./config/env');
 
 // Builds the Express app (no network/DB side effects — easy to test).
 const app = express();
 
 app.disable('x-powered-by');
+app.set('trust proxy', trustProxy);
 app.use(express.json({ limit: '10kb' }));
 
 app.use('/health', healthRoutes);
-app.use('/auth', authRoutes);
+app.use('/auth', authLimiter, authRoutes);
 app.use('/api/links', linkRoutes);
 
 // Public short-link redirect. Must stay last so it doesn't shadow the routes above.

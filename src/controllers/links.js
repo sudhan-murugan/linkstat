@@ -2,6 +2,7 @@ const Link = require('../models/Link');
 const Click = require('../models/Click');
 const { baseUrl } = require('../config/env');
 const { generateShortCode, SHORT_CODE_PATTERN } = require('../utils/shortCode');
+const { getCachedLink, cacheLink } = require('../utils/linkCache');
 
 const MAX_CODE_ATTEMPTS = 5;
 
@@ -35,15 +36,22 @@ async function listLinks(req, res) {
 // and every visit reaches the server (needed for click analytics).
 async function redirect(req, res) {
   const { code } = req.params;
-  const link = SHORT_CODE_PATTERN.test(code)
-    ? await Link.findOne({ shortCode: code }, { originalUrl: 1 }).lean()
-    : null;
+  if (!SHORT_CODE_PATTERN.test(code)) return res.status(404).json({ error: 'Short link not found' });
 
-  if (!link) return res.status(404).json({ error: 'Short link not found' });
+  // Serve from cache when possible; on a miss, load from MongoDB and cache it.
+  let link = await getCachedLink(code);
+  res.set('X-Cache', link ? 'HIT' : 'MISS');
+
+  if (!link) {
+    const doc = await Link.findOne({ shortCode: code }, { originalUrl: 1, shortCode: 1 }).lean();
+    if (!doc) return res.status(404).json({ error: 'Short link not found' });
+    await cacheLink(doc);
+    link = { id: String(doc._id), originalUrl: doc.originalUrl };
+  }
 
   // Fire-and-forget: start the writes, but don't await them — a slow or failing
   // analytics write must never delay or break the redirect.
-  recordClick(link._id, req).catch((err) => console.error('Click tracking failed:', err.message));
+  recordClick(link.id, req).catch((err) => console.error('Click tracking failed:', err.message));
 
   res.redirect(302, link.originalUrl);
 }

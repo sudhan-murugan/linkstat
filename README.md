@@ -10,6 +10,20 @@ A URL shortener with click analytics.
 - express-validator for request validation
 - nanoid for short codes
 - dotenv for configuration
+- express-rate-limit for per-IP rate limiting
+- Redis (optional, via `redis`) for the redirect cache, with an in-memory fallback
+
+## Rate limiting & caching
+
+- `POST /api/links`: 20 requests / 15 min per IP. `/auth/*`: 10 failed attempts / 15 min
+  per IP (successful requests aren't counted). Over the limit → `429`
+  `{ "error": "Too many requests", "message": "...", "retryAfter": <seconds> }`.
+- `GET /:code` looks up `shortCode → originalUrl` in the cache first (1 h TTL) and only
+  queries MongoDB on a miss. The response header `X-Cache: HIT|MISS` shows which.
+  Deleting a link or changing its URL/code evicts its cache entry.
+- Set `REDIS_URL` to use Redis (e.g. a free [Upstash](https://upstash.com) database:
+  `REDIS_URL=rediss://default:<password>@<endpoint>.upstash.io:6379`). If it's unset or
+  unreachable at startup, the app logs it and uses an in-process memory cache instead.
 
 ## API
 
@@ -42,12 +56,14 @@ src/
   config/
     env.js        # Loads + validates environment variables
     db.js         # MongoDB connection
+    cache.js      # Redis cache with in-memory fallback
   controllers/
     auth.js       # register / login
     links.js      # create, list, redirect
   middleware/
     auth.js       # JWT verification (requireAuth)
     validate.js   # express-validator error responder
+    rateLimit.js  # per-IP rate limiters (links, auth)
   models/
     User.js       # User schema
     Link.js       # Link schema
@@ -57,6 +73,7 @@ src/
     links.js      # /api/links
   utils/
     shortCode.js  # nanoid short-code generator
+    linkCache.js  # redirect cache helpers (shortCode -> originalUrl)
 ```
 
 ## Running locally
