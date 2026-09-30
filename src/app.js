@@ -1,4 +1,6 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const openapiSpec = require('./docs/openapi');
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const linkRoutes = require('./routes/links');
@@ -16,6 +18,10 @@ app.use(express.json({ limit: '10kb' }));
 app.use('/health', healthRoutes);
 app.use('/auth', authLimiter, authRoutes);
 app.use('/api/links', linkRoutes);
+
+// Interactive API docs (Swagger UI) + the raw OpenAPI spec
+app.get('/api/docs.json', (req, res) => res.json(openapiSpec));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'LinkStat API docs' }));
 
 // Public short-link redirect. Must stay last so it doesn't shadow the routes above.
 app.get('/:code', redirect);
